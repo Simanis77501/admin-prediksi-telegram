@@ -1,0 +1,590 @@
+<script>
+// ── State ────────────────────────────────────────────────────────────────────
+let currentPage = 'dashboard';
+let chartInstance = null;
+let dtGroups = null;
+let dtLog = null;
+let dtPrediksi = null;
+
+// ── Init ─────────────────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', function () {
+  // Muat email user
+  google.script.run
+    .withSuccessHandler(function (email) {
+      document.getElementById('userEmail').innerHTML =
+        '<i class="bi bi-person-circle me-1"></i>' + (email || 'Admin');
+    })
+    .getCurrentUserEmail();
+
+  // Muat halaman default
+  loadPage('dashboard');
+});
+
+// ── Navigasi SPA ─────────────────────────────────────────────────────────────
+function loadPage(page) {
+  currentPage = page;
+
+  // Sembunyikan semua halaman
+  document.querySelectorAll('[id^="page-"]').forEach(function (el) {
+    el.classList.add('d-none');
+  });
+
+  // Tampilkan halaman yang dipilih
+  const target = document.getElementById('page-' + page);
+  if (target) target.classList.remove('d-none');
+
+  // Update nav active state
+  document.querySelectorAll('.sidebar .nav-link').forEach(function (el) {
+    el.classList.remove('active');
+    if (el.getAttribute('onclick') && el.getAttribute('onclick').includes("'" + page + "'")) {
+      el.classList.add('active');
+    }
+  });
+
+  // Muat data sesuai halaman
+  switch (page) {
+    case 'dashboard': loadDashboardStats(); break;
+    case 'groups': loadGroups(); break;
+    case 'prediction': loadPrediksiForm(); break;
+    case 'setting': loadSettingPage(); break;
+    case 'log': loadRequestLog(); break;
+  }
+
+  // Tutup sidebar di mobile
+  if (window.innerWidth < 768) {
+    document.getElementById('sidebar').classList.remove('mobile-open');
+  }
+}
+
+// ── Sidebar Toggle ────────────────────────────────────────────────────────────
+function toggleSidebar() {
+  const sidebar = document.getElementById('sidebar');
+  const main = document.getElementById('mainContent');
+  if (window.innerWidth < 768) {
+    sidebar.classList.toggle('mobile-open');
+  } else {
+    sidebar.classList.toggle('collapsed');
+    main.classList.toggle('expanded');
+  }
+}
+
+// ── Dashboard ─────────────────────────────────────────────────────────────────
+function loadDashboardStats() {
+  google.script.run
+    .withSuccessHandler(function (data) {
+      if (!data || !data.success) return;
+
+      document.getElementById('statTotalGroup').textContent = data.totalGroup || 0;
+      document.getElementById('statTotalRequest').textContent = data.totalRequestHariIni || 0;
+      document.getElementById('statPasaranAktif').textContent = data.totalPasaranAktif || 0;
+      document.getElementById('statJadwal').textContent =
+        (data.jadwalHariIni && data.jadwalHariIni.length) || 0;
+
+      // Tampilkan jadwal
+      const listEl = document.getElementById('listJadwal');
+      if (data.jadwalHariIni && data.jadwalHariIni.length > 0) {
+        listEl.innerHTML = data.jadwalHariIni.map(function (j) {
+          return '<li class="list-group-item bg-transparent border-secondary d-flex justify-content-between align-items-center">' +
+            '<span>' + getPasaranBadge(j.kode) + ' ' + escapeHtml(j.nama) + '</span>' +
+            '<span class="badge bg-dark text-light border border-secondary"><i class="bi bi-clock me-1"></i>' + escapeHtml(j.jam) + '</span>' +
+            '</li>';
+        }).join('');
+      } else {
+        listEl.innerHTML = '<li class="list-group-item bg-transparent border-secondary text-muted text-center">Tidak ada jadwal</li>';
+      }
+    })
+    .withFailureHandler(showError)
+    .getDashboardStats();
+
+  // Muat 5 request terbaru
+  google.script.run
+    .withSuccessHandler(function (data) {
+      const tbody = document.getElementById('bodyRecentRequests');
+      if (!data || data.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted py-3">Belum ada request</td></tr>';
+        return;
+      }
+      tbody.innerHTML = data.slice(0, 5).map(function (row) {
+        return '<tr>' +
+          '<td><small>' + escapeHtml(row.waktu) + '</small></td>' +
+          '<td>@' + escapeHtml(row.user) + '</td>' +
+          '<td><small>' + escapeHtml(row.group) + '</small></td>' +
+          '<td><span class="badge bg-secondary">' + escapeHtml(row.request) + '</span></td>' +
+          '</tr>';
+      }).join('');
+
+      // Chart
+      renderRequestChart(data);
+    })
+    .withFailureHandler(showError)
+    .getRequestLog();
+}
+
+function renderRequestChart(data) {
+  // Hitung request per pasaran
+  const counts = {};
+  data.forEach(function (row) {
+    const req = (row.request || '').toUpperCase();
+    let pasaran = 'LAIN';
+    if (req.includes('HK') || req.includes('HONGKONG')) pasaran = 'HK';
+    else if (req.includes('SGP') || req.includes('SINGAPORE')) pasaran = 'SGP';
+    else if (req.includes('SDY') || req.includes('SYDNEY')) pasaran = 'SDY';
+    counts[pasaran] = (counts[pasaran] || 0) + 1;
+  });
+
+  const chartEl = document.getElementById('chartRequest');
+  if (!chartEl) return;
+
+  if (chartInstance) { chartInstance.destroy(); chartInstance = null; }
+
+  const labels = Object.keys(counts);
+  const series = Object.values(counts);
+
+  chartInstance = new ApexCharts(chartEl, {
+    chart: { type: 'bar', height: 240, background: 'transparent', toolbar: { show: false } },
+    series: [{ name: 'Request', data: series }],
+    xaxis: { categories: labels },
+    colors: ['#ffc107'],
+    plotOptions: { bar: { borderRadius: 6, columnWidth: '50%' } },
+    theme: { mode: 'dark' },
+    grid: { borderColor: 'rgba(255,255,255,0.08)' },
+    dataLabels: { enabled: false }
+  });
+  chartInstance.render();
+}
+
+// ── Groups ────────────────────────────────────────────────────────────────────
+function loadGroups() {
+  google.script.run
+    .withSuccessHandler(function (data) {
+      const tbody = document.getElementById('bodyGroups');
+      if (!data || data.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-4">Belum ada group. Klik "Tambah Group".</td></tr>';
+        return;
+      }
+      tbody.innerHTML = data.map(function (row, idx) {
+        const statusBadge = row.status === 'ACTIVE'
+          ? '<span class="badge bg-success">ACTIVE</span>'
+          : '<span class="badge bg-danger">INACTIVE</span>';
+        const pasaranBadges = (row.pasaran || '').split(',').map(function (p) {
+          return getPasaranBadge(p.trim());
+        }).join(' ');
+        return '<tr>' +
+          '<td>' + (idx + 1) + '</td>' +
+          '<td>' + escapeHtml(row.group_name) + '</td>' +
+          '<td><code>' + escapeHtml(row.chat_id) + '</code></td>' +
+          '<td>' + pasaranBadges + '</td>' +
+          '<td>' + statusBadge + '</td>' +
+          '<td>' +
+            '<div class="d-flex gap-1">' +
+              '<button class="btn btn-xs btn-outline-warning btn-sm" title="Toggle Status"' +
+                ' data-id="' + escapeHtml(row.id) + '" data-status="' + escapeHtml(row.status) + '"' +
+                ' onclick="toggleGroupStatus(this.dataset.id, this.dataset.status)">' +
+                '<i class="bi bi-toggle-on"></i>' +
+              '</button>' +
+              '<button class="btn btn-xs btn-outline-danger btn-sm" title="Hapus"' +
+                ' data-id="' + escapeHtml(row.id) + '" data-name="' + escapeHtml(row.group_name) + '"' +
+                ' onclick="confirmDeleteGroup(this.dataset.id, this.dataset.name)">' +
+                '<i class="bi bi-trash"></i>' +
+              '</button>' +
+            '</div>' +
+          '</td>' +
+          '</tr>';
+      }).join('');
+    })
+    .withFailureHandler(showError)
+    .getGroups();
+}
+
+function saveGroup() {
+  const data = {
+    group_name: document.getElementById('inputGroupName').value.trim(),
+    chat_id: document.getElementById('inputChatId').value.trim(),
+    pasaran: document.getElementById('inputGroupPasaran').value.trim().toUpperCase(),
+    status: document.getElementById('inputGroupStatus').value
+  };
+  if (!data.group_name || !data.chat_id) {
+    return Swal.fire('Perhatian', 'Nama Group dan Chat ID wajib diisi.', 'warning');
+  }
+  google.script.run
+    .withSuccessHandler(function (res) {
+      if (res.success) {
+        bootstrap.Modal.getInstance(document.getElementById('modalAddGroup')).hide();
+        document.getElementById('inputGroupName').value = '';
+        document.getElementById('inputChatId').value = '';
+        document.getElementById('inputGroupPasaran').value = '';
+        loadGroups();
+        Swal.fire('Berhasil!', res.message, 'success');
+      } else {
+        Swal.fire('Gagal', res.message, 'error');
+      }
+    })
+    .withFailureHandler(showError)
+    .insertGroup(data);
+}
+
+function toggleGroupStatus(id, currentStatus) {
+  const newStatus = currentStatus === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE';
+  google.script.run
+    .withSuccessHandler(function (res) {
+      if (res.success) {
+        loadGroups();
+        Swal.fire('Berhasil!', res.message, 'success');
+      } else {
+        Swal.fire('Gagal', res.message, 'error');
+      }
+    })
+    .withFailureHandler(showError)
+    .updateGroupStatus(id, newStatus);
+}
+
+function confirmDeleteGroup(id, name) {
+  document.getElementById('deleteGroupName').textContent = name;
+  const modal = new bootstrap.Modal(document.getElementById('modalDeleteGroup'));
+  document.getElementById('btnConfirmDeleteGroup').onclick = function () {
+    modal.hide();
+    google.script.run
+      .withSuccessHandler(function (res) {
+        if (res.success) {
+          loadGroups();
+          Swal.fire('Berhasil!', res.message, 'success');
+        } else {
+          Swal.fire('Gagal', res.message, 'error');
+        }
+      })
+      .withFailureHandler(showError)
+      .deleteGroup(id);
+  };
+  modal.show();
+}
+
+// ── Prediksi ──────────────────────────────────────────────────────────────────
+function loadPrediksiForm() {
+  // Isi dropdown pasaran
+  google.script.run
+    .withSuccessHandler(function (data) {
+      const sel = document.getElementById('inputPrediksiPasaran');
+      const selFilter = document.getElementById('filterPasaranPrediksi');
+      if (!sel || !selFilter) return;
+      const opts = data.filter(function (p) { return p.status === 'ACTIVE'; }).map(function (p) {
+        return '<option value="' + escapeHtml(p.kode) + '">' + escapeHtml(p.nama) + ' (' + escapeHtml(p.kode) + ')</option>';
+      }).join('');
+      sel.innerHTML = '<option value="">-- Pilih Pasaran --</option>' + opts;
+      selFilter.innerHTML = '<option value="">Semua Pasaran</option>' + opts;
+      loadPrediksi();
+    })
+    .withFailureHandler(showError)
+    .getPasaran();
+}
+
+function loadPrediksi() {
+  google.script.run
+    .withSuccessHandler(function (data) {
+      const tbody = document.getElementById('bodyPrediksi');
+      const filterVal = (document.getElementById('filterPasaranPrediksi') &&
+        document.getElementById('filterPasaranPrediksi').value) || '';
+      let filtered = data;
+      if (filterVal) filtered = data.filter(function (r) { return r.pasaran === filterVal; });
+      filtered = filtered.slice(0, 10);
+      if (!filtered.length) {
+        tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-3">Belum ada data prediksi.</td></tr>';
+        return;
+      }
+      tbody.innerHTML = filtered.map(function (row) {
+        return '<tr>' +
+          '<td><small>' + escapeHtml(row.tanggal) + '</small></td>' +
+          '<td>' + getPasaranBadge(row.pasaran) + '</td>' +
+          '<td><b>' + escapeHtml(row.angka) + '</b></td>' +
+          '<td>' + escapeHtml(row.bbfs) + '</td>' +
+          '<td>' + escapeHtml(row.cb) + '</td>' +
+          '<td>' + escapeHtml(row.shio) + '</td>' +
+          '</tr>';
+      }).join('');
+    })
+    .withFailureHandler(showError)
+    .getPrediksi();
+}
+
+function savePrediction() {
+  const data = {
+    pasaran: document.getElementById('inputPrediksiPasaran').value,
+    angka: document.getElementById('inputAngka').value.trim(),
+    bbfs: document.getElementById('inputBBFS').value.trim(),
+    cb: document.getElementById('inputCB').value.trim(),
+    shio: document.getElementById('inputShio').value.trim(),
+    gambar: document.getElementById('inputGambar').value.trim()
+  };
+  if (!data.pasaran) {
+    return Swal.fire('Perhatian', 'Pilih pasaran terlebih dahulu.', 'warning');
+  }
+  google.script.run
+    .withSuccessHandler(function (res) {
+      if (res.success) {
+        ['inputAngka','inputBBFS','inputCB','inputShio','inputGambar'].forEach(function (id) {
+          document.getElementById(id).value = '';
+        });
+        document.getElementById('inputPrediksiPasaran').value = '';
+        loadPrediksi();
+        Swal.fire('Berhasil!', res.message, 'success');
+      } else {
+        Swal.fire('Gagal', res.message, 'error');
+      }
+    })
+    .withFailureHandler(showError)
+    .insertPrediction(data);
+}
+
+function previewPrediksi() {
+  const pasaran = document.getElementById('inputPrediksiPasaran').value || '???';
+  const angka = document.getElementById('inputAngka').value || '-';
+  const bbfs = document.getElementById('inputBBFS').value || '-';
+  const cb = document.getElementById('inputCB').value || '-';
+  const shio = document.getElementById('inputShio').value || '-';
+  const preview =
+    '🔮 PREDIKSI ' + pasaran.toUpperCase() + '\n\n' +
+    '🎯 Angka  : ' + angka + '\n' +
+    '🎯 BBFS   : ' + bbfs + '\n' +
+    '🎯 CB     : ' + cb + '\n' +
+    '🎯 Shio   : ' + shio + '\n\n' +
+    '✅ Semoga Hoki!';
+  document.getElementById('previewContent').textContent = preview;
+  new bootstrap.Modal(document.getElementById('modalPreviewPrediksi')).show();
+}
+
+// ── Setting ────────────────────────────────────────────────────────────────────
+function loadSettingPage() {
+  // Muat config
+  google.script.run
+    .withSuccessHandler(function (cfg) {
+      if (document.getElementById('inputWebhookUrl'))
+        document.getElementById('inputWebhookUrl').value = cfg.WEBHOOK_URL || '';
+      if (document.getElementById('inputSheetId'))
+        document.getElementById('inputSheetId').value = cfg.SHEET_ID || '';
+    })
+    .withFailureHandler(showError)
+    .getConfig();
+
+  // Muat admin list
+  google.script.run
+    .withSuccessHandler(function (res) {
+      if (res && res.emails && document.getElementById('inputAdminEmails')) {
+        document.getElementById('inputAdminEmails').value = res.emails.join(', ');
+      }
+    })
+    .withFailureHandler(showError)
+    .getAdminList();
+
+  // Muat pasaran
+  loadPasaranTable();
+}
+
+function saveConfig() {
+  const config = {
+    BOT_TOKEN: document.getElementById('inputBotToken').value.trim(),
+    WEBHOOK_URL: document.getElementById('inputWebhookUrl').value.trim(),
+    SHEET_ID: document.getElementById('inputSheetId').value.trim()
+  };
+  google.script.run
+    .withSuccessHandler(function (res) {
+      Swal.fire(res.success ? 'Berhasil!' : 'Gagal', res.message, res.success ? 'success' : 'error');
+      if (res.success) document.getElementById('inputBotToken').value = '';
+    })
+    .withFailureHandler(showError)
+    .saveConfig(config);
+}
+
+function doSetWebhook() {
+  Swal.fire({ title: 'Mendaftarkan webhook...', allowOutsideClick: false, didOpen: function () { Swal.showLoading(); } });
+  google.script.run
+    .withSuccessHandler(function (res) {
+      Swal.fire(res.success ? 'Berhasil!' : 'Gagal', res.message, res.success ? 'success' : 'error');
+    })
+    .withFailureHandler(showError)
+    .setWebhook();
+}
+
+function doInitSheets() {
+  Swal.fire({ title: 'Menginisialisasi sheets...', allowOutsideClick: false, didOpen: function () { Swal.showLoading(); } });
+  google.script.run
+    .withSuccessHandler(function (res) {
+      Swal.fire(res.success ? 'Berhasil!' : 'Gagal', res.message, res.success ? 'success' : 'error');
+    })
+    .withFailureHandler(showError)
+    .initSheets();
+}
+
+function doCreateTrigger() {
+  google.script.run
+    .withSuccessHandler(function (res) {
+      Swal.fire(res.success ? 'Berhasil!' : 'Gagal', res.message, res.success ? 'success' : 'error');
+    })
+    .withFailureHandler(showError)
+    .createTrigger();
+}
+
+function doDeleteTrigger() {
+  Swal.fire({
+    title: 'Hapus semua trigger?',
+    text: 'Auto posting akan berhenti.',
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonColor: '#dc3545',
+    confirmButtonText: 'Ya, Hapus'
+  }).then(function (result) {
+    if (result.isConfirmed) {
+      google.script.run
+        .withSuccessHandler(function (res) {
+          Swal.fire(res.success ? 'Berhasil!' : 'Gagal', res.message, res.success ? 'success' : 'error');
+        })
+        .withFailureHandler(showError)
+        .deleteTrigger();
+    }
+  });
+}
+
+function saveAdminEmails() {
+  const emails = document.getElementById('inputAdminEmails').value.trim();
+  google.script.run
+    .withSuccessHandler(function (res) {
+      Swal.fire(res.success ? 'Berhasil!' : 'Gagal', res.message, res.success ? 'success' : 'error');
+    })
+    .withFailureHandler(showError)
+    .setAdminEmails(emails);
+}
+
+// ── Pasaran ────────────────────────────────────────────────────────────────────
+// Store pasaran data by id to avoid XSS via inline JSON
+var _pasaranCache = {};
+
+function loadPasaranTable() {
+  google.script.run
+    .withSuccessHandler(function (data) {
+      const tbody = document.getElementById('bodyPasaran');
+      if (!tbody) return;
+      if (!data || !data.length) {
+        tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-3">Belum ada pasaran.</td></tr>';
+        return;
+      }
+      _pasaranCache = {};
+      data.forEach(function (row) { _pasaranCache[row.id] = row; });
+      tbody.innerHTML = data.map(function (row, idx) {
+        const statusBadge = row.status === 'ACTIVE'
+          ? '<span class="badge bg-success">ACTIVE</span>'
+          : '<span class="badge bg-danger">INACTIVE</span>';
+        return '<tr>' +
+          '<td>' + (idx + 1) + '</td>' +
+          '<td>' + getPasaranBadge(row.kode) + '</td>' +
+          '<td>' + escapeHtml(row.nama) + '</td>' +
+          '<td><i class="bi bi-clock me-1"></i>' + escapeHtml(row.jam_post) + '</td>' +
+          '<td>' + statusBadge + '</td>' +
+          '<td>' +
+            '<button class="btn btn-sm btn-outline-warning"' +
+              ' data-id="' + escapeHtml(row.id) + '"' +
+              ' onclick="editPasaranById(this.dataset.id)">' +
+              '<i class="bi bi-pencil"></i>' +
+            '</button>' +
+          '</td>' +
+          '</tr>';
+      }).join('');
+    })
+    .withFailureHandler(showError)
+    .getPasaran();
+}
+
+function editPasaranById(id) {
+  const row = _pasaranCache[id];
+  if (!row) return;
+  editPasaran(row);
+}
+
+function editPasaran(row) {
+  document.getElementById('editPasaranId').value = row.id || '';
+  document.getElementById('inputPasaranKode').value = row.kode || '';
+  document.getElementById('inputPasaranNama').value = row.nama || '';
+  document.getElementById('inputPasaranJam').value = row.jam_post || '';
+  document.getElementById('inputPasaranStatus').value = row.status || 'ACTIVE';
+  new bootstrap.Modal(document.getElementById('modalAddPasaran')).show();
+}
+
+function savePasaran() {
+  const id = document.getElementById('editPasaranId').value;
+  const data = {
+    id: id,
+    kode: document.getElementById('inputPasaranKode').value.trim().toUpperCase(),
+    nama: document.getElementById('inputPasaranNama').value.trim(),
+    jam_post: document.getElementById('inputPasaranJam').value,
+    status: document.getElementById('inputPasaranStatus').value
+  };
+  if (!data.kode || !data.nama || !data.jam_post) {
+    return Swal.fire('Perhatian', 'Kode, Nama, dan Jam Post wajib diisi.', 'warning');
+  }
+  const fn = id ? 'updatePasaran' : 'insertPasaran';
+  google.script.run
+    .withSuccessHandler(function (res) {
+      if (res.success) {
+        bootstrap.Modal.getInstance(document.getElementById('modalAddPasaran')).hide();
+        document.getElementById('editPasaranId').value = '';
+        loadPasaranTable();
+        Swal.fire('Berhasil!', res.message, 'success');
+      } else {
+        Swal.fire('Gagal', res.message, 'error');
+      }
+    })
+    .withFailureHandler(showError)
+    [fn](data);
+}
+
+// ── Request Log ────────────────────────────────────────────────────────────────
+function loadRequestLog() {
+  google.script.run
+    .withSuccessHandler(function (data) {
+      const tbody = document.getElementById('bodyLog');
+      if (!tbody) return;
+      if (!data || !data.length) {
+        tbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted py-3">Belum ada request log.</td></tr>';
+        return;
+      }
+      tbody.innerHTML = data.slice(0, 100).map(function (row) {
+        return '<tr>' +
+          '<td><small>' + escapeHtml(row.waktu) + '</small></td>' +
+          '<td>@' + escapeHtml(row.user) + '</td>' +
+          '<td><small>' + escapeHtml(row.group) + '</small></td>' +
+          '<td><span class="badge bg-secondary">' + escapeHtml(row.request) + '</span></td>' +
+          '</tr>';
+      }).join('');
+    })
+    .withFailureHandler(showError)
+    .getRequestLog();
+}
+
+// ── Helper ─────────────────────────────────────────────────────────────────────
+function escapeHtml(str) {
+  if (str === null || str === undefined) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+function getPasaranBadge(kode) {
+  if (!kode) return '';
+  const k = kode.toUpperCase().trim();
+  let cls = 'bg-secondary';
+  if (k === 'HK') cls = 'badge-hk';
+  else if (k === 'SGP') cls = 'badge-sgp';
+  else if (k === 'SDY') cls = 'badge-sdy';
+  return '<span class="badge badge-pasaran ' + cls + '">' + k + '</span>';
+}
+
+function showError(err) {
+  console.error(err);
+  Swal.fire('Error', String(err && err.message ? err.message : err), 'error');
+}
+
+function togglePasswordVisibility(inputId) {
+  const el = document.getElementById(inputId);
+  el.type = el.type === 'password' ? 'text' : 'password';
+}
+</script>

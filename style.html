@@ -1,0 +1,230 @@
+<style>
+/* ── Custom Dark Theme ───────────────────────────────────────────── */
+:root {
+  --sidebar-width: 240px;
+  --topbar-height: 56px;
+  --bg-card: #1e2130;
+  --bg-sidebar: #12141d;
+  --border-color: rgba(255,255,255,0.08);
+}
+
+body {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background-color: #111320;
+  color: #e0e0e0;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* ── Sidebar ─────────────────────────────────────────────────────── */
+.sidebar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  height: 100vh;
+  width: var(--sidebar-width);
+  background-color: var(--bg-sidebar);
+  border-right: 1px solid var(--border-color);
+  z-index: 1000;
+  transition: width 0.3s ease, transform 0.3s ease;
+  overflow: hidden;
+}
+
+.sidebar.collapsed {
+  width: 64px;
+}
+
+.sidebar.collapsed .sidebar-brand span,
+.sidebar.collapsed .nav-link span,
+.sidebar.collapsed .nav-link {
+  overflow: hidden;
+}
+
+.sidebar .nav-link {
+  color: #9ba3b4;
+  border-radius: 8px;
+  margin-bottom: 4px;
+  padding: 10px 12px;
+  font-size: 0.875rem;
+  transition: background 0.2s, color 0.2s;
+  white-space: nowrap;
+}
+
+.sidebar .nav-link:hover {
+  background: rgba(255,255,255,0.07);
+  color: #fff;
+}
+
+.sidebar .nav-link.active {
+  background: rgba(255, 193, 7, 0.15);
+  color: #ffc107;
+}
+
+.sidebar-brand {
+  min-height: var(--topbar-height);
+  white-space: nowrap;
+}
+
+/* ── Main Content ─────────────────────────────────────────────────── */
+.main-content {
+  margin-left: var(--sidebar-width);
+  min-height: 100vh;
+  transition: margin-left 0.3s ease;
+}
+
+.main-content.expanded {
+  margin-left: 64px;
+}
+
+/* ── Stat Cards ───────────────────────────────────────────────────── */
+.stat-card {
+  background-color: var(--bg-card) !important;
+  border-radius: 12px !important;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.stat-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.4) !important;
+}
+
+.stat-icon {
+  min-width: 56px;
+  min-height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ── Cards General ───────────────────────────────────────────────── */
+.card {
+  background-color: var(--bg-card) !important;
+  border-radius: 12px !important;
+}
+
+.card-header {
+  border-radius: 12px 12px 0 0 !important;
+}
+
+/* ── Tables ─────────────────────────────────────────────────────── */
+.table-dark {
+  --bs-table-bg: transparent;
+  --bs-table-striped-bg: rgba(255,255,255,0.03);
+  --bs-table-hover-bg: rgba(255,255,255,0.06);
+}
+
+.table th {
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  color: #9ba3b4;
+  border-color: var(--border-color) !important;
+}
+
+.table td {
+  border-color: var(--border-color) !important;
+  vertical-align: middle;
+  font-size: 0.875rem;
+}
+
+/* ── Custom Badge Warna Pasaran ───────────────────────────────────── */
+.badge-hk {
+  background-color: #dc3545 !important;
+  color: #fff;
+}
+
+.badge-sgp {
+  background-color: #198754 !important;
+  color: #fff;
+}
+
+.badge-sdy {
+  background-color: #0d6efd !important;
+  color: #fff;
+}
+
+.badge-pasaran {
+  font-size: 0.75rem;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-weight: 600;
+  letter-spacing: .05em;
+}
+
+/* ── Forms ──────────────────────────────────────────────────────── */
+.form-control, .form-select {
+  background-color: #252838 !important;
+  color: #e0e0e0 !important;
+  border-color: var(--border-color) !important;
+}
+
+.form-control:focus, .form-select:focus {
+  background-color: #2d3048 !important;
+  border-color: #ffc107 !important;
+  box-shadow: 0 0 0 3px rgba(255,193,7,0.15) !important;
+  color: #fff !important;
+}
+
+.form-control::placeholder {
+  color: #6b7280;
+}
+
+/* ── Navbar ─────────────────────────────────────────────────────── */
+.navbar {
+  border-bottom: 1px solid var(--border-color) !important;
+  min-height: var(--topbar-height);
+}
+
+/* ── Scrollbar ──────────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.3); }
+
+/* ── Responsive Mobile ───────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .sidebar {
+    transform: translateX(-100%);
+    width: var(--sidebar-width) !important;
+  }
+  .sidebar.mobile-open {
+    transform: translateX(0);
+  }
+  .main-content {
+    margin-left: 0 !important;
+  }
+}
+
+/* ── Utilities ───────────────────────────────────────────────────── */
+.bg-secondary-dark {
+  background-color: var(--bg-card) !important;
+}
+
+.border-secondary {
+  border-color: var(--border-color) !important;
+}
+
+.modal-content {
+  background-color: #1a1d2e !important;
+}
+
+code {
+  background: rgba(255,255,255,0.1);
+  padding: 2px 6px;
+  border-radius: 4px;
+  color: #ffc107;
+  font-size: 0.85em;
+}
+
+/* ── Loading Spinner ────────────────────────────────────────────── */
+.spinner-border-sm {
+  width: 1rem;
+  height: 1rem;
+}
+
+/* ── List Group ─────────────────────────────────────────────────── */
+.list-group-item {
+  background-color: transparent !important;
+  color: #e0e0e0;
+}
+</style>

@@ -1,0 +1,112 @@
+<!-- prediction.html – Input Prediksi -->
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <h4 class="mb-0"><i class="bi bi-pencil-square me-2"></i>Input Prediksi</h4>
+  <button class="btn btn-sm btn-outline-info" onclick="loadPrediksi()">
+    <i class="bi bi-arrow-clockwise me-1"></i>Refresh
+  </button>
+</div>
+
+<div class="row g-4">
+  <!-- Form Input -->
+  <div class="col-12 col-lg-5">
+    <div class="card bg-dark border-0 shadow">
+      <div class="card-header bg-warning text-dark border-0">
+        <h6 class="mb-0 fw-bold"><i class="bi bi-plus-circle me-2"></i>Tambah Prediksi Baru</h6>
+      </div>
+      <div class="card-body">
+        <div class="mb-3">
+          <label class="form-label">Pasaran <span class="text-danger">*</span></label>
+          <select class="form-select bg-secondary text-light border-0" id="inputPrediksiPasaran">
+            <option value="">-- Pilih Pasaran --</option>
+          </select>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Angka Utama</label>
+          <input type="text" class="form-control bg-secondary text-light border-0" id="inputAngka"
+            placeholder="Contoh: 4567" maxlength="4" />
+        </div>
+        <div class="mb-3">
+          <label class="form-label">BBFS</label>
+          <input type="text" class="form-control bg-secondary text-light border-0" id="inputBBFS"
+            placeholder="Contoh: 2345678" maxlength="8" />
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Colok Bebas (CB)</label>
+          <input type="text" class="form-control bg-secondary text-light border-0" id="inputCB"
+            placeholder="Contoh: 5" maxlength="2" />
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Shio</label>
+          <input type="text" class="form-control bg-secondary text-light border-0" id="inputShio"
+            placeholder="Contoh: Macan" />
+        </div>
+        <div class="mb-3">
+          <label class="form-label">URL Gambar (Opsional)</label>
+          <input type="url" class="form-control bg-secondary text-light border-0" id="inputGambar"
+            placeholder="https://..." />
+        </div>
+        <div class="d-flex gap-2">
+          <button class="btn btn-outline-info flex-fill" onclick="previewPrediksi()">
+            <i class="bi bi-eye me-1"></i>Preview
+          </button>
+          <button class="btn btn-warning flex-fill" onclick="savePrediction()">
+            <i class="bi bi-save me-1"></i>Simpan
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tabel Prediksi Terbaru -->
+  <div class="col-12 col-lg-7">
+    <div class="card bg-dark border-0 shadow">
+      <div class="card-header bg-dark border-bottom border-secondary">
+        <div class="d-flex justify-content-between align-items-center">
+          <h6 class="mb-0"><i class="bi bi-list-ul me-2"></i>Prediksi Terbaru</h6>
+          <select class="form-select form-select-sm bg-secondary text-light border-0" style="width:auto"
+            id="filterPasaranPrediksi" onchange="loadPrediksi()">
+            <option value="">Semua Pasaran</option>
+          </select>
+        </div>
+      </div>
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="table table-dark table-hover table-sm mb-0" id="tablePrediksi">
+            <thead>
+              <tr>
+                <th>Tanggal</th>
+                <th>Pasaran</th>
+                <th>Angka</th>
+                <th>BBFS</th>
+                <th>CB</th>
+                <th>Shio</th>
+              </tr>
+            </thead>
+            <tbody id="bodyPrediksi">
+              <tr>
+                <td colspan="6" class="text-center text-muted py-4">
+                  <span class="spinner-border spinner-border-sm me-2"></span> Memuat...
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Preview Prediksi -->
+<div class="modal fade" id="modalPreviewPrediksi" tabindex="-1">
+  <div class="modal-dialog modal-sm">
+    <div class="modal-content bg-dark text-light border-warning">
+      <div class="modal-header border-warning">
+        <h5 class="modal-title text-warning"><i class="bi bi-eye me-2"></i>Preview Prediksi</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="p-3 rounded" style="background:#1a1a2e; font-family:monospace; white-space:pre-line" id="previewContent"></div>
+      </div>
+    </div>
+  </div>
+</div>
