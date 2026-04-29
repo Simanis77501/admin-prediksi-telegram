@@ -1,0 +1,158 @@
+<!-- setting.html – Pengaturan Bot & Sistem -->
+<h4 class="mb-4"><i class="bi bi-gear-fill me-2"></i>Pengaturan</h4>
+
+<div class="row g-4">
+  <!-- Konfigurasi Bot -->
+  <div class="col-12 col-lg-6">
+    <div class="card bg-dark border-0 shadow">
+      <div class="card-header bg-dark border-bottom border-secondary">
+        <h6 class="mb-0"><i class="bi bi-robot me-2 text-warning"></i>Konfigurasi Telegram Bot</h6>
+      </div>
+      <div class="card-body">
+        <div class="mb-3">
+          <label class="form-label">BOT TOKEN <span class="text-danger">*</span></label>
+          <div class="input-group">
+            <input type="password" class="form-control bg-secondary text-light border-0" id="inputBotToken"
+              placeholder="Masukkan BOT TOKEN baru (opsional)" />
+            <button class="btn btn-outline-secondary" type="button" onclick="togglePasswordVisibility('inputBotToken')">
+              <i class="bi bi-eye"></i>
+            </button>
+          </div>
+          <div class="form-text text-muted">Kosongkan jika tidak ingin mengubah. Token tersimpan di PropertiesService.</div>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">WEBHOOK URL <span class="text-danger">*</span></label>
+          <input type="url" class="form-control bg-secondary text-light border-0" id="inputWebhookUrl"
+            placeholder="https://script.google.com/macros/s/..." />
+        </div>
+        <div class="mb-3">
+          <label class="form-label">SHEET ID <span class="text-danger">*</span></label>
+          <input type="text" class="form-control bg-secondary text-light border-0" id="inputSheetId"
+            placeholder="ID Google Spreadsheet" />
+        </div>
+        <div class="d-flex flex-wrap gap-2">
+          <button class="btn btn-warning" onclick="saveConfig()">
+            <i class="bi bi-save me-1"></i>Simpan Config
+          </button>
+          <button class="btn btn-outline-success" onclick="doSetWebhook()">
+            <i class="bi bi-link-45deg me-1"></i>Set Webhook
+          </button>
+          <button class="btn btn-outline-info" onclick="doInitSheets()">
+            <i class="bi bi-database me-1"></i>Init Sheets
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Trigger & Admin -->
+  <div class="col-12 col-lg-6">
+    <!-- Trigger -->
+    <div class="card bg-dark border-0 shadow mb-4">
+      <div class="card-header bg-dark border-bottom border-secondary">
+        <h6 class="mb-0"><i class="bi bi-clock me-2 text-info"></i>Scheduler Trigger</h6>
+      </div>
+      <div class="card-body">
+        <p class="text-muted small">Trigger otomatis menjalankan <code>autoPostPredictions</code> setiap 15 menit.</p>
+        <div class="d-flex gap-2">
+          <button class="btn btn-success" onclick="doCreateTrigger()">
+            <i class="bi bi-play-fill me-1"></i>Buat Trigger
+          </button>
+          <button class="btn btn-danger" onclick="doDeleteTrigger()">
+            <i class="bi bi-stop-fill me-1"></i>Hapus Trigger
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Admin Emails -->
+    <div class="card bg-dark border-0 shadow">
+      <div class="card-header bg-dark border-bottom border-secondary">
+        <h6 class="mb-0"><i class="bi bi-shield-lock me-2 text-danger"></i>Whitelist Admin Email</h6>
+      </div>
+      <div class="card-body">
+        <div class="mb-3">
+          <label class="form-label">Email Admin</label>
+          <textarea class="form-control bg-secondary text-light border-0" id="inputAdminEmails" rows="3"
+            placeholder="admin@gmail.com, admin2@gmail.com"></textarea>
+          <div class="form-text text-muted">Pisahkan email dengan koma. Kosongkan untuk akses terbuka (tidak disarankan).</div>
+        </div>
+        <button class="btn btn-outline-danger" onclick="saveAdminEmails()">
+          <i class="bi bi-save me-1"></i>Simpan Admin
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Manajemen Pasaran -->
+  <div class="col-12">
+    <div class="card bg-dark border-0 shadow">
+      <div class="card-header bg-dark border-bottom border-secondary">
+        <div class="d-flex justify-content-between align-items-center">
+          <h6 class="mb-0"><i class="bi bi-list-stars me-2 text-warning"></i>Manajemen Pasaran</h6>
+          <button class="btn btn-sm btn-warning" data-bs-toggle="modal" data-bs-target="#modalAddPasaran">
+            <i class="bi bi-plus-circle me-1"></i>Tambah Pasaran
+          </button>
+        </div>
+      </div>
+      <div class="card-body">
+        <div class="table-responsive">
+          <table class="table table-dark table-hover table-sm" id="tablePasaran">
+            <thead>
+              <tr><th>#</th><th>Kode</th><th>Nama</th><th>Jam Post</th><th>Status</th><th>Aksi</th></tr>
+            </thead>
+            <tbody id="bodyPasaran">
+              <tr>
+                <td colspan="6" class="text-center text-muted py-3">
+                  <span class="spinner-border spinner-border-sm me-2"></span> Memuat...
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Tambah Pasaran -->
+<div class="modal fade" id="modalAddPasaran" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content bg-dark text-light border-secondary">
+      <div class="modal-header border-secondary">
+        <h5 class="modal-title"><i class="bi bi-plus-circle me-2"></i>Tambah Pasaran</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="editPasaranId" />
+        <div class="mb-3">
+          <label class="form-label">Kode <span class="text-danger">*</span></label>
+          <input type="text" class="form-control bg-secondary text-light border-0" id="inputPasaranKode"
+            placeholder="Contoh: HK" maxlength="10" />
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Nama <span class="text-danger">*</span></label>
+          <input type="text" class="form-control bg-secondary text-light border-0" id="inputPasaranNama"
+            placeholder="Contoh: Hongkong" />
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Jam Post <span class="text-danger">*</span></label>
+          <input type="time" class="form-control bg-secondary text-light border-0" id="inputPasaranJam" />
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Status</label>
+          <select class="form-select bg-secondary text-light border-0" id="inputPasaranStatus">
+            <option value="ACTIVE">ACTIVE</option>
+            <option value="INACTIVE">INACTIVE</option>
+          </select>
+        </div>
+      </div>
+      <div class="modal-footer border-secondary">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+        <button type="button" class="btn btn-warning" onclick="savePasaran()">
+          <i class="bi bi-save me-1"></i>Simpan
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
